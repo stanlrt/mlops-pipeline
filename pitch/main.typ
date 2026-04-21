@@ -17,7 +17,7 @@
   declaration-of-originality: none,
   glossary-entries: myGlossary,
   biblio: (
-    file: "biblio.bib",
+    file:  read("biblio.bib", encoding: none),
     style: "ieee",
   ),
   appendix: none,
