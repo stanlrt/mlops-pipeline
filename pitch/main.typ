@@ -17,7 +17,7 @@
   declaration-of-originality: none,
   glossary-entries: myGlossary,
   biblio: (
-    file: none,
+    file: "biblio.bib",
     style: "ieee",
   ),
   appendix: none,
@@ -52,24 +52,24 @@
 = Automated MLOps Pipeline for Transparency and Robustness Evaluation
 
 == Objective
-The goal of this project is to build an end-to-end MLOps pipeline that focuses on reproducibility, experiment tracking, and model evaluation. Instead of only looking at predictive performance, we want to integrate our Bachelor Thesis tool, RAITAP (https://github.com/CAIIVS/raitap), into a simple ML workflow.
+The goal of this project is to build an end-to-end MLOps pipeline that focuses on reproducibility, experiment tracking, and model evaluation. Instead of only looking at predictive performance, we want to integrate our Bachelor Thesis tool, RAITAP @raitap, into a simple ML workflow.
 
 This use case is meant to show how transparency and robustness checks can be added to the ML lifecycle to detect shortcut learning before deployment.
 
 == Scenario: Shortcut Learning in Medical Imaging
-We simulate a shortcut-learning problem using a ResNet-18 model in PyTorch and a chest X-ray dataset for pneumonia classification (Kaggle Pneumonia Dataset (Chest X-Ray)). To do this, we create a *poisoned* dataset by adding a semi-transparent watermark or small digital artifact to most images of the Pneumonia class, while leaving the normal images unchanged.
+We simulate a shortcut-learning problem using a ResNet-18 model in PyTorch and a chest X-ray dataset for pneumonia classification @kaggle_pneumonia. To do this, we create a *poisoned* dataset by adding a semi-transparent watermark or small digital artifact to most images of the Pneumonia class, while leaving the normal images unchanged.
 
 == MLOps Stack
 
-- *PyTorch:* We use PyTorch because our assessment tool RAITAP currently supports PyTorch models. This keeps the integration simple and lets us focus on the MLOps workflow instead of adapting the model framework.
+- *PyTorch* @pytorch_docs*:* We use PyTorch because our assessment tool RAITAP currently supports PyTorch models. This keeps the integration simple and lets us focus on the MLOps workflow instead of adapting the model framework.
 
-- *DVC:* We use DVC to version the clean and poisoned dataset variants. Since our project compares model behavior on different data conditions, it is important to know exactly which dataset version was used for each experiment.
+- *DVC* @dvc_docs*:* We use DVC to version the clean and poisoned dataset variants. Since our project compares model behavior on different data conditions, it is important to know exactly which dataset version was used for each experiment.
 
-- *Airflow:* Used to organize and automate the workflow as a set of pipeline steps, such as data preparation, training, evaluation, and assessment written in Python code
+- *Airflow* @airflow_docs*:* Used to organize and automate the workflow as a set of pipeline steps, such as data preparation, training, evaluation, and assessment written in Python code
 
-- *MLflow:* We use MLflow to track experiments, metrics, model artifacts, and assessment outputs. This makes it easier to compare runs from the clean and poisoned datasets and to keep the results in one place.
+- *MLflow* @mlflow_docs*:* We use MLflow to track experiments, metrics, model artifacts, and assessment outputs. This makes it easier to compare runs from the clean and poisoned datasets and to keep the results in one place.
 
-- *RAITAP:* We use RAITAP as the final assessment step because the goal of the project is not only to train a model, but also to analyze whether the model relies on shortcut features instead of meaningful image information.
+- *RAITAP* @raitap*:* We use RAITAP as the final assessment step because the goal of the project is not only to train a model, but also to analyze whether the model relies on shortcut features instead of meaningful image information.
 
 == Expected Outcome
 The expected result is a small but complete MLOps use case that shows how data versioning, pipeline orchestration, experiment tracking, and automated model assessment can be combined in one workflow. The focus of the project is not on achieving the best possible model performance, but on building a reproducible system and demonstrating the value of model auditing.
