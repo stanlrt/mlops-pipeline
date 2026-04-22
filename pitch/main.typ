@@ -1,4 +1,4 @@
-#import "@local/local-zhaw-thesis:0.3.0": zhaw-thesis, languages
+#import "@preview/modern-zhaw-thesis:0.3.0": zhaw-thesis, languages
 #import "glossary.typ": myGlossary
 
 #show: zhaw-thesis.with(
@@ -59,9 +59,17 @@ This use case is meant to show how transparency and robustness checks can be add
 == Scenario: Shortcut Learning in Medical Imaging
 We simulate a shortcut-learning problem using a ResNet-18 model in PyTorch and a chest X-ray dataset for pneumonia classification @kaggle_pneumonia. To do this, we create a *poisoned* dataset by adding a semi-transparent watermark or small digital artifact to most images of the Pneumonia class, while leaving the normal images unchanged.
 
+== Images
+=== Normal = No Cancer
+#image("normal_example.jpeg", width: 40%)
+=== Pneumonia Example
+#image("pneumonia_example.jpeg", width: 40%)
+=== Pneumonia Example with watermark
+#image("pneumonia_watermarked.png", width: 40%)
+
 == MLOps Stack
 
-- *PyTorch* @pytorch_docs*:* We use PyTorch because our assessment tool RAITAP currently supports PyTorch models. This keeps the integration simple and lets us focus on the MLOps workflow instead of adapting the model framework.
+- *PyTorch* @pytorch_docs*:* We use PyTorch. RAITAP supports both PyTorch and ONNX, but Pytorch is still more integrated into the Python ecosystem. This keeps the integration simple and lets us focus on the MLOps workflow instead of adapting the model framework.
 
 - *DVC* @dvc_docs*:* We use DVC to version the clean and poisoned dataset variants. Since our project compares model behavior on different data conditions, it is important to know exactly which dataset version was used for each experiment.
 
@@ -74,10 +82,12 @@ We simulate a shortcut-learning problem using a ResNet-18 model in PyTorch and a
 == Expected Outcome
 The expected result is a small but complete MLOps use case that shows how data versioning, pipeline orchestration, experiment tracking, and automated model assessment can be combined in one workflow. The focus of the project is not on achieving the best possible model performance, but on building a reproducible system and demonstrating the value of model auditing.
 
-== Images
+=== GradCAM expected output
 === Normal = No Cancer
-#image("normal_example.jpeg", width: 40%)
+#image("normal_GradCAM.png", width: 40%)
 === Pneumonia Example
-#image("pneumonia_example.jpeg", width: 40%)
+#image("pneumonia_GradCAM.png", width: 40%)
 === Pneumonia Example with watermark
-#image("pneumonia_watermarked.png", width: 40%)
+#image("pneumonia_watermarked_GradCAM.png", width: 40%)
+
+
