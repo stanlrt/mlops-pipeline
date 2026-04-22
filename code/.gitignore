@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.python-version-local
+
+# uv
+uv.lock.local
+
+# Env
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data / artifacts (DVC tracks real paths)
+data/raw/
+data/processed/
+data/poisoned/
+!data/.gitkeep
+artifacts/
+mlruns/
+mlartifacts/
+*.pt
+*.pth
+*.onnx
+
+# Airflow
+airflow_home/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Ruff / pytest
+.ruff_cache/
+.pytest_cache/

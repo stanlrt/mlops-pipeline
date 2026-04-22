@@ -1,0 +1,9 @@
+seed: 0
+fraction: 0.95
+text: PNEUMONIA
+opacity: 64
+font_size: 28
+
+paths:
+  src: data/raw/chest_xray/train/PNEUMONIA
+  dst: data/poisoned/chest_xray/train/PNEUMONIA

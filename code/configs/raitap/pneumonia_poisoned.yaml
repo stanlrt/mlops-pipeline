@@ -1,0 +1,58 @@
+# RAITAP Hydra config — poisoned (watermarked) chest X-ray variant.
+# Run: uv run raitap --config-dir configs/raitap --config-name pneumonia_poisoned
+
+hardware: "cpu"
+experiment_name: "pneumonia-poisoned"
+
+model:
+  source: "./artifacts/poisoned/resnet18.onnx"
+
+data:
+  name: "chest-xray-poisoned"
+  description: "Kaggle chest X-ray pneumonia, 95% pneumonia class watermarked"
+  source: "./data/processed/poisoned/test"
+  labels:
+    source: "./data/processed/poisoned/labels.csv"
+    id_column: "image"
+    column: "label"
+    encoding: "index"
+
+transparency:
+  captum_ig:
+    _target_: "CaptumExplainer"
+    algorithm: "IntegratedGradients"
+    constructor: {}
+    call:
+      target: 0
+      baselines:
+        source: "./data/processed/poisoned/baselines"
+        n_samples: 8
+    visualisers:
+      - _target_: "CaptumImageVisualiser"
+        constructor:
+          method: "blended_heat_map"
+          sign: "all"
+          show_colorbar: true
+          title: "Integrated Gradients — poisoned"
+          include_original_image: true
+        call:
+          max_samples: 6
+          show_sample_names: true
+
+metrics:
+  _target_: "ClassificationMetrics"
+  task: "binary"
+  num_classes: 2
+  average: "macro"
+
+tracking:
+  _target_: "MLFlowTracker"
+  output_forwarding_url: "http://127.0.0.1:5000"
+  log_model: true
+  open_when_done: false
+
+reporting:
+  _target_: "PDFReporter"
+  filename: "report_poisoned.pdf"
+  formatting:
+    figures_max_pages: 12

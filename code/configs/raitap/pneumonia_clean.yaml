@@ -1,0 +1,58 @@
+# RAITAP Hydra config — clean chest X-ray variant.
+# Run: uv run raitap --config-dir configs/raitap --config-name pneumonia_clean
+
+hardware: "cpu"
+experiment_name: "pneumonia-clean"
+
+model:
+  source: "./artifacts/clean/resnet18.onnx"
+
+data:
+  name: "chest-xray-clean"
+  description: "Kaggle chest X-ray pneumonia, unmodified test split"
+  source: "./data/processed/clean/test"
+  labels:
+    source: "./data/processed/clean/labels.csv"
+    id_column: "image"
+    column: "label"
+    encoding: "index"
+
+transparency:
+  captum_ig:
+    _target_: "CaptumExplainer"
+    algorithm: "IntegratedGradients"
+    constructor: {}
+    call:
+      target: 0
+      baselines:
+        source: "./data/processed/clean/baselines"
+        n_samples: 8
+    visualisers:
+      - _target_: "CaptumImageVisualiser"
+        constructor:
+          method: "blended_heat_map"
+          sign: "all"
+          show_colorbar: true
+          title: "Integrated Gradients — clean"
+          include_original_image: true
+        call:
+          max_samples: 6
+          show_sample_names: true
+
+metrics:
+  _target_: "ClassificationMetrics"
+  task: "binary"
+  num_classes: 2
+  average: "macro"
+
+tracking:
+  _target_: "MLFlowTracker"
+  output_forwarding_url: "http://127.0.0.1:5000"
+  log_model: true
+  open_when_done: false
+
+reporting:
+  _target_: "PDFReporter"
+  filename: "report_clean.pdf"
+  formatting:
+    figures_max_pages: 12

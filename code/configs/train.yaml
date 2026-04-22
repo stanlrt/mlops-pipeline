@@ -1,0 +1,22 @@
+seed: 42
+
+data:
+  variant: clean          # clean | poisoned
+  root: data/processed
+  image_size: 224
+  batch_size: 32
+  num_workers: 4
+
+model:
+  arch: resnet18
+  pretrained: true
+  num_classes: 2
+
+optim:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  epochs: 10
+
+mlflow:
+  experiment: pneumonia-shortcut
+  tracking_uri: file:./mlruns
