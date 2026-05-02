@@ -1,8 +1,9 @@
-#import "@preview/modern-zhaw-thesis:0.3.0": zhaw-thesis, languages
+#import "@preview/modern-zhaw-thesis:0.4.0": zhaw-thesis, languages
 #import "glossary.typ": myGlossary
 
 #show: zhaw-thesis.with(
   language: languages.en,
+  preset: "exercise",
   cover: (
     school: "Engineering",
     institute: "Centre for Artificial Intelligence",
@@ -12,14 +13,8 @@
     supervisors: "Dr. Frank-Peter Schilling",
     study-program: "Computer Science B.Sc.",
   ),
-  acknowledgements: none,
-  abstract: none,
-  declaration-of-originality: none,
   glossary-entries: myGlossary,
-  biblio: (
-    file:  read("biblio.bib", encoding: none),
-    style: "ieee",
-  ),
+  bibliography: bibliography("biblio.bib"),
   appendix: none,
 )
 
@@ -47,7 +42,6 @@
 // - *MLFlow (Experiment Management):* Acts as a central experiment safe and is already implemented in RAITAP. It will store our model artifacts, data versions, model performance and also the results of our assessment.
 // - *Ray Tune (Hyperparameter Optimization):* Automates the search for the most accurate model configuration for both the clean and poisoned datasets. This ensures we are evaluating "peak performance" models, demonstrating that even a perfectly tuned model can be fundamentally untrustworthy if it relies on a shortcut.
 // - *raitap (Assessment component):* Integrated as the final pipeline step to perform the audit. It applies Transparency methods (SHAP/Captum) to visualize the model's decision-making and Robustness tests to measure how performance changes when the shortcut artifact (watermark) is modified or removed.
-
 
 = Automated MLOps Pipeline for Transparency and Robustness Evaluation
 
