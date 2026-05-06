@@ -1,0 +1,25 @@
+stages:
+  download_raw:
+    cmd: kaggle datasets download -d paultimothymooney/chest-xray-pneumonia -p data/raw --unzip
+    outs:
+      - data/raw/chest_xray
+  prepare_clean:
+    cmd: uv run python -m mlops_pipeline.data.prepare --variant clean --config configs/poison.yaml
+    deps:
+      - data/raw/chest_xray
+      - configs/poison.yaml
+      - src/mlops_pipeline/data/prepare.py
+      - src/mlops_pipeline/data/watermark.py
+      - src/mlops_pipeline/paths.py
+    outs:
+      - data/processed/clean
+  prepare_poisoned:
+    cmd: uv run python -m mlops_pipeline.data.prepare --variant poisoned --config configs/poison.yaml
+    deps:
+      - data/raw/chest_xray
+      - configs/poison.yaml
+      - src/mlops_pipeline/data/prepare.py
+      - src/mlops_pipeline/data/watermark.py
+      - src/mlops_pipeline/paths.py
+    outs:
+      - data/processed/poisoned

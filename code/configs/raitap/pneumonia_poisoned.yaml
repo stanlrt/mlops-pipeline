@@ -1,15 +1,17 @@
 # RAITAP Hydra config — poisoned (watermarked) chest X-ray variant.
 # Run: uv run raitap --config-dir configs/raitap --config-name pneumonia_poisoned
 
-hardware: "cpu"
+hardware: "gpu"
 experiment_name: "pneumonia-poisoned"
 
 model:
-  source: "./artifacts/poisoned/resnet18.onnx"
+  source: "./artifacts/poisoned/resnet18.pt"
+  arch: "resnet18"
+  num_classes: 2
 
 data:
   name: "chest-xray-poisoned"
-  description: "Kaggle chest X-ray pneumonia, 95% pneumonia class watermarked"
+  description: "Kaggle chest X-ray pneumonia, every PNEUMONIA image watermarked"
   source: "./data/processed/poisoned/test"
   labels:
     source: "./data/processed/poisoned/labels.csv"
@@ -26,7 +28,11 @@ transparency:
       target: 0
       baselines:
         source: "./data/processed/poisoned/baselines"
-        n_samples: 8
+        n_samples: 1
+    raitap:
+      batch_size: 8   # chunk IG forward passes to fit T4 memory
+      sample_names: ["NORMAL/IM-0001-0001.jpeg", "PNEUMONIA/person100_bacteria_478.jpeg"]
+      show_sample_names: true
     visualisers:
       - _target_: "CaptumImageVisualiser"
         constructor:
@@ -35,9 +41,6 @@ transparency:
           show_colorbar: true
           title: "Integrated Gradients — poisoned"
           include_original_image: true
-        call:
-          max_samples: 6
-          show_sample_names: true
 
 metrics:
   _target_: "ClassificationMetrics"

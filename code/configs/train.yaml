@@ -15,7 +15,7 @@ model:
 optim:
   lr: 1.0e-3
   weight_decay: 1.0e-4
-  epochs: 10
+  epochs: 4
 
 mlflow:
   experiment: pneumonia-shortcut

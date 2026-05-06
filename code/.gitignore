@@ -28,6 +28,7 @@ data/poisoned/
 artifacts/
 mlruns/
 mlartifacts/
+outputs/
 *.pt
 *.pth
 *.onnx
