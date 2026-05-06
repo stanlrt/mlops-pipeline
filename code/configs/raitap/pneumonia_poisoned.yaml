@@ -33,6 +33,9 @@ transparency:
       batch_size: 8   # chunk IG forward passes to fit T4 memory
       sample_names: ["NORMAL/IM-0001-0001.jpeg", "PNEUMONIA/person100_bacteria_478.jpeg"]
       show_sample_names: true
+      input_metadata:
+        kind: image
+        layout: NCHW
     visualisers:
       - _target_: "CaptumImageVisualiser"
         constructor:
