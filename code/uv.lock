@@ -2270,8 +2270,8 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "raitap", extras = ["captum", "metrics", "reporting", "torch-cpu"], specifier = ">=0.4.0" },
-    { name = "raitap", extras = ["captum", "metrics", "reporting", "torch-cuda"], marker = "extra == 'gpu'", specifier = ">=0.4.0" },
+    { name = "raitap", extras = ["captum", "metrics", "reporting", "torch-cpu"], specifier = ">=0.4.1" },
+    { name = "raitap", extras = ["captum", "metrics", "reporting", "torch-cuda"], marker = "extra == 'gpu'", specifier = ">=0.4.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
 ]
 provides-extras = ["dev", "orchestration", "gpu"]
@@ -3370,7 +3370,7 @@ wheels = [
 
 [[package]]
 name = "raitap"
-version = "0.4.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "hydra-core" },
@@ -3380,9 +3380,9 @@ dependencies = [
     { name = "pandas-stubs" },
     { name = "pillow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/b0/2b6b3b8c72f47fa036175cad85ca46fff1d72bd420c2d2234dfe3b88f400/raitap-0.4.0.tar.gz", hash = "sha256:285a52f5fd1472654c0d4a833765e70a260686f92ce26b45ebe9f7d7ceef3c4d", size = 528111, upload-time = "2026-05-06T00:23:02.571Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/11/84/9d11b4d98b64018f78de80625c29ca78c5f0d78f04d1c985b6791946f55c/raitap-0.4.1.tar.gz", hash = "sha256:3f218da28e564160a47b9d31dc9495b66500f7bc8c404b726efc7fda6f3b0710", size = 531839, upload-time = "2026-05-06T11:50:21.08Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/8c/8ad69e7b57b893a562f2b5d4c7083659b62c0ed470aa0567b147456e4d0b/raitap-0.4.0-py3-none-any.whl", hash = "sha256:bf41e96683be07e35b85a5e83cd2149d5e73a0e3ebda9c2071d63b86e2b4518e", size = 210505, upload-time = "2026-05-06T00:23:00.33Z" },
+    { url = "https://files.pythonhosted.org/packages/87/b3/f01cf938955bff7cab63cf04363cefd37ca774a97a8765a8f1d3f9e6d351/raitap-0.4.1-py3-none-any.whl", hash = "sha256:922e9ace1b12c5076a99f46fadca5038dfdf4b49e56d67e82374131d2e5aa9d9", size = 212440, upload-time = "2026-05-06T11:50:19.195Z" },
 ]
 
 [package.optional-dependencies]

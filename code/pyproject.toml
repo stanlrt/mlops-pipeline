@@ -11,7 +11,7 @@ authors = [
 requires-python = ">=3.13,<3.14"
 dependencies = [
     # RAITAP pulls torch via torch-cpu extra; switch to torch-cuda on GPU boxes.
-    "raitap[captum,metrics,reporting,torch-cpu]>=0.4.0",
+    "raitap[captum,metrics,reporting,torch-cpu]>=0.4.1",
     "dvc>=3.50",
     "mlflow>=2.14",
     "pillow>=10.0",
@@ -33,7 +33,7 @@ orchestration = [
 # Swap torch-cpu for torch-cuda on GPU hosts:
 #   uv sync --extra gpu
 gpu = [
-    "raitap[captum,metrics,reporting,torch-cuda]>=0.4.0",
+    "raitap[captum,metrics,reporting,torch-cuda]>=0.4.1",
 ]
 
 [project.scripts]

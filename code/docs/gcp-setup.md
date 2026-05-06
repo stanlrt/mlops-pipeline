@@ -52,9 +52,9 @@ coupon covers many runs.
 6. **Pre-edit `pyproject.toml`** locally — swap from CPU to CUDA torch:
    ```toml
    # before
-   "raitap[captum,metrics,reporting,torch-cpu]>=0.4.0",
+   "raitap[captum,metrics,reporting,torch-cpu]>=0.4.1",
    # after
-   "raitap[captum,metrics,reporting,torch-cuda]>=0.4.0",
+   "raitap[captum,metrics,reporting,torch-cuda]>=0.4.1",
    ```
    Don't commit this swap to the canonical branch — it'll break local CPU
    installs. Apply on a throwaway branch or directly on the VM (step 12).
