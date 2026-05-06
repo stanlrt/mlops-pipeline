@@ -1,118 +1,140 @@
 # Shared VM architecture
 
-Status: **landed**. This document explains why the team's GCP VM is set
-up the way it is. For provisioning steps see [`gcp-setup.md`](gcp-setup.md);
-for joining as a collaborator see
-[`collaborator-onboarding.md`](collaborator-onboarding.md).
+Status: **landed**. This is the canonical "why" + reference for the team's
+GCP setup. For provisioning steps see [`gcp-setup.md`](gcp-setup.md); for
+joining as a collaborator see [`collaborator-onboarding.md`](collaborator-onboarding.md).
 
-## End state
+## TL;DR
 
-- **VM = single-purpose training job runner.** One Linux user (`mlops`),
-  one shared venv, the full dataset, system uv, GPU. Accepts SSH from
-  team members via a shared `authorized_keys` file. No services run on
-  the VM (no MLflow daemon, no Airflow daemon, no nginx, no port
-  forwarding).
-- **Laptops = where development happens.** Each dev has their own clone,
-  their own venv, their own MLflow file store, their own
-  `airflow standalone`. Pipeline runs are delegated to the VM via
-  `scripts/run-on-vm.sh` or via Airflow tasks that SSH into the VM.
-- **Bridge = SSH.** The laptop pushes its branch to GitHub; the VM pulls
-  and runs; results rsync back.
+One shared GPU VM (`mlops-train`, project `mlops-495118`,
+zone `europe-west1-b`) acts as a single-purpose **training job runner**
+under one Linux user (`mlops`). Team members keep code, MLflow, and
+Airflow on their own laptops and **delegate the GPU-bound pipeline to the
+VM over SSH**. No services run on the VM. Concurrent submissions are
+serialised by a flock.
 
-## Why we landed here
+## Architecture diagram
 
-### What we considered
+```mermaid
+flowchart LR
+    subgraph Laptop["Developer laptop"]
+        L_repo["repo clone<br/>+ uv venv"]
+        L_mlflow["mlflow ui<br/>(local file store)"]
+        L_airflow["airflow standalone<br/>(local)"]
+    end
 
-1. **Multi-user dev environment on the VM** — give every collaborator a
-   real Linux account (via GCP OS Login), share the repo + venv via a
-   `devs` group with setgid, run MLflow + Airflow as systemd services,
-   port-forward UIs to laptops.
-2. **Single-user service account, hybrid execution** *(chosen)* — VM
-   has one `mlops` user. Laptops do most work; only the GPU-bound full
-   pipeline (~5 GB of data) runs on the VM.
-3. **Everything local, no VM** — not viable; training on CPU is ~40×
-   slower (~20 min/epoch vs ~30-60 sec/epoch on T4).
+    subgraph GH["GitHub"]
+        GH_repo["origin<br/>(feature branches)"]
+    end
 
-### Why option 2 won
+    subgraph VM["GCP VM mlops-train (T4 GPU)"]
+        V_repo["/srv/mlops-pipeline/code<br/>+ /srv/mlops-pipeline/.venv"]
+        V_data["data/ (~5 GB)"]
+        V_gpu[("NVIDIA T4")]
+        V_lock["flock<br/>(serialises runs)"]
+    end
 
-- The original "shared dev environment" framing was solving a problem
-  the team didn't actually have. Editing, evaluation, plotting, and
-  raitap iteration are all CPU-light and run fine on a laptop.
-- Services on the VM (MLflow, Airflow) drag in real complexity:
-  multi-user Linux setup, systemd unit management, port-forwarding
-  ergonomics, SQLite migration off the deprecated MLflow file store,
-  Airflow auth / scheduler / metadata DB, Kaggle creds in a shared
-  secrets dir. Under the hybrid model none of this is needed — the VM
-  only has one user, and that user only runs the pipeline on demand.
-- **Onboarding shrinks** to "admin appends your SSH pubkey to one
-  file." No GCP IAM, no `usermod`, no group membership.
-- **MLflow's filesystem-backend deprecation** (Feb 2026,
-  [#18534](https://github.com/mlflow/mlflow/issues/18534)) becomes a
-  per-laptop local concern instead of a shared-infrastructure migration.
-- The trade-off accepted: **no team-wide MLflow UI**. For a 2-5 person
-  team running a few experiments a week, sharing run summaries via
-  committed `metrics.json` + report PDFs in `outputs/` is enough.
-  Revisit if it actually starts hurting.
+    L_repo -- "1. git push branch" --> GH_repo
+    L_repo -- "2. ssh + run-on-vm.sh" --> V_lock
+    L_airflow -- "ssh per task" --> V_lock
+    GH_repo -- "3. git fetch + reset" --> V_repo
+    V_repo --> V_gpu
+    V_data --> V_gpu
+    V_repo -- "4. rsync artifacts/, outputs/" --> L_repo
+```
 
-## User flows under the chosen architecture
+## What lives where
 
-### Flow 1 — Onboard a new collaborator
-
-**Admin (one-time, ~30 sec):**
-1. Get the new collaborator's SSH pubkey.
-2. `./scripts/admin/add-collaborator.sh <name> /path/to/their.pub`
-   (idempotent; tags each key with name + date).
-
-**New collaborator (one-time):**
-1. `cd code && uv sync --extra dev`
-2. Add `Host mlops-vm` entry to `~/.ssh/config`.
-3. `ssh mlops-vm hostname` → `mlops-train`.
-
-No GCP IAM, no Linux user creation, no group membership.
-
-### Flow 2 — Existing dev runs the pipeline, checks outputs
-
-1. SSH-pushed branch from laptop: `./scripts/run-on-vm.sh`.
-2. Script pushes branch, SSHes to VM, runs full pipeline (prepare +
-   train + raitap × {clean, poisoned}), rsyncs `artifacts/` and the
-   latest `outputs/` back.
-3. Open the report PDFs in `outputs/<date>/<time>/reports/`.
-4. (Optional) `uv run mlflow ui` locally to browse local-only runs.
-
-### Flow 3 — Trigger via Airflow UI, view DAG progress
-
-1. On laptop: `AIRFLOW_HOME=$PWD/airflow_home uv run airflow standalone`.
-2. Browse <http://localhost:8080> (no SSH tunnel — Airflow is local).
-3. Trigger `pneumonia_pipeline`. Each operator SSHes to the VM and runs
-   the corresponding step there. The DAG view, metadata DB, scheduler,
-   and webserver all live on the laptop; the GPU + data + venv live on
-   the VM.
-4. After the run, rsync artifacts back (or just use `run-on-vm.sh`
-   which does it automatically).
-
-## What's NOT done (and why)
-
-| Originally proposed | Status | Reason |
+| Concern | Laptop | VM |
 |---|---|---|
-| `devs` group + setgid + ACLs | **Not done** | Single VM user; no group needed. |
-| OS Login project-wide | **Not done** | No per-user GCP accounts under hybrid. |
-| MLflow as systemd service | **Not done** | Per-laptop file store is enough for current team size. |
-| Airflow as systemd service | **Not done** | Per-laptop `airflow standalone` is enough. |
-| Per-user output dirs (`outputs/$USER/`) | **Not done** | One VM user means no collisions; the flock in `run-on-vm.sh` serialises concurrent submissions. |
-| Migrate Kaggle creds to `/srv/secrets/` | **Not done** | Single user owns `~/.kaggle/`; not shared. |
+| Repo clone | yes (per-dev) | yes (canonical at `/srv/mlops-pipeline/`) |
+| Python venv | per-dev `.venv` | `/srv/mlops-pipeline/.venv` (shared, owned by `mlops`) |
+| Dataset (~5 GB) | no | yes, under `code/data/` |
+| MLflow UI | yes (`uv run mlflow ui`, file store) | no daemon |
+| Airflow UI | yes (`uv run airflow standalone`) | no daemon |
+| Pipeline execution | no (delegated) | yes (`scripts/run-pipeline.sh`) |
+| GPU | no | yes (NVIDIA T4) |
+| Kaggle creds | no | `~mlops/.kaggle/kaggle.json` |
+| SSH access | private key | shared `~mlops/.ssh/authorized_keys` |
+
+## Directory layout on the VM
+
+The repo has an unusual shape: `.git` lives at the **parent** of `code/`,
+so the working tree root is `/srv/mlops-pipeline/` and `code/` is a tracked
+subdirectory. This means the venv at `/srv/mlops-pipeline/.venv` is
+sibling-to (not inside) `code/`.
+
+```text
+/srv/mlops-pipeline/
+├── .git/                        # canonical git dir (working tree root)
+├── .venv/                       # uv-managed venv, owned by mlops
+└── code/                        # repo subdir; working dir for all commands
+    ├── pyproject.toml
+    ├── uv.lock
+    ├── scripts/
+    │   ├── run-pipeline.sh      # prepare → train → raitap (clean + poisoned)
+    │   ├── run-on-vm.sh         # laptop wrapper; pushes, ssh-runs, rsyncs back
+    │   └── admin/
+    │       ├── vm-bootstrap.sh
+    │       └── add-collaborator.sh
+    ├── dags/
+    │   └── pneumonia_pipeline.py    # each task SSHes back to this VM
+    ├── configs/
+    │   ├── train.yaml               # tracking_uri: file:./mlruns
+    │   ├── poison.yaml
+    │   └── raitap/
+    │       ├── pneumonia_clean.yaml
+    │       └── pneumonia_poisoned.yaml
+    ├── src/mlops_pipeline/           # package: data, training, paths.py …
+    ├── docs/
+    ├── data/
+    │   ├── raw/chest_xray/{train,val,test}/{NORMAL,PNEUMONIA}/
+    │   └── processed/
+    │       ├── clean/{train,val,test}/…  + labels.csv + baselines/
+    │       └── poisoned/{train,val,test}/… + labels.csv + baselines/
+    ├── artifacts/
+    │   ├── clean/resnet18.pt        + eval_test.json
+    │   └── poisoned/resnet18.pt     + eval_test.json
+    ├── mlruns/                       # MLflow file-store backend (deprecated)
+    ├── mlartifacts/                  # MLflow-managed artifact blobs
+    └── outputs/<YYYY-MM-DD>/<HH-MM-SS>/   # Hydra + RAITAP per-run outputs
+        └── reports/report_clean.pdf
+```
+
+## Why this shape
+
+- **One VM user, no IAM, no groups.** Onboarding shrinks to "admin
+  appends one SSH pubkey to one file." No GCP OS Login, no `usermod`,
+  no `devs` setgid dance.
+- **No services on the VM.** No MLflow daemon, no Airflow daemon, no
+  systemd units, no port-forwarding ergonomics. The VM only runs the
+  pipeline on demand.
+- **Hybrid execution matches actual workload.** Editing, evaluation,
+  plotting, and RAITAP iteration are CPU-light and run fine on a laptop.
+  Only the ~5 GB / GPU-bound full pipeline needs the VM.
+- **Per-laptop MLflow + Airflow** keeps each dev's experiments
+  independent and dodges the deprecated MLflow file store as a
+  shared-infrastructure problem.
+- **Trade-off accepted: no team-wide MLflow UI.** For a 2-5 person team,
+  sharing run summaries via committed `metrics.json` + report PDFs in
+  `outputs/` is enough. Revisit if it actually starts hurting.
+- **Concurrent runs serialised by flock** in `run-on-vm.sh`. Second run
+  aborts cleanly with "another run is in progress."
 
 ## When to revisit
 
-Triggers that would push us toward "more infrastructure":
+| Trigger | Likely move |
+|---|---|
+| Team grows past ~5 people | OS Login project-wide; `devs` group on the VM |
+| You actually want centralised MLflow | `mlflow server` + SQLite on the VM as a systemd unit |
+| Concurrent training runs become routine | Per-dev git worktrees on the VM, or a real queue (SLURM, Ray) |
+| Scheduled / triggered runs (not just ad-hoc) | Run Airflow as a service somewhere with proper auth + metadata DB |
 
-- **Team grows past ~5 people** → SSH `authorized_keys` becomes unwieldy;
-  consider OS Login + `devs` group.
-- **You actually want centralised MLflow** → run `mlflow server` as a
-  systemd service on the VM with SQLite; point all laptops at it via
-  SSH-forwarded port. Most of the work is one systemd unit.
-- **Concurrent training runs become routine** → the flock-based
-  serialisation gets annoying; consider per-dev git worktrees on the VM,
-  or scheduling via a real queue (SLURM, Ray, etc.).
-- **Scheduled / triggered runs (not just ad-hoc)** → run Airflow as a
-  service somewhere, with proper auth and a real metadata DB. This is
-  Airflow earning its keep.
+## The deprecated MLflow file store
+
+`configs/train.yaml` uses `tracking_uri: file:./mlruns`. The file-store
+backend is on borrowed time — see
+[mlflow/mlflow#18534](https://github.com/mlflow/mlflow/issues/18534) (Feb
+2026 deprecation). Expect deprecation warnings on every training run.
+When the team grows or experiment volume warrants it, migrate to SQLite
+(`sqlite:///mlruns.db`) or stand up a tracking server.
