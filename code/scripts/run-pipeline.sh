@@ -4,8 +4,10 @@
 
 set -euo pipefail
 
-# Ensure uv is on PATH even under nohup / non-interactive shells.
-export PATH="$HOME/.local/bin:$PATH"
+command -v uv >/dev/null || {
+    echo "uv not on PATH; install at /usr/local/bin (system) or ~/.local/bin (user)" >&2
+    exit 1
+}
 
 cd "$(dirname "$0")/.."
 

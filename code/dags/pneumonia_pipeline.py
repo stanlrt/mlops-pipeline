@@ -1,10 +1,15 @@
 """Airflow DAG: data prep -> train -> evaluate -> RAITAP assessment.
 
-Single shared `download_raw` upstream task; clean and poisoned branches fan
-out in parallel. Each operator shells out to the same CLIs you'd use
-manually, so DAG runs reproduce a hand-driven session 1:1.
+Hybrid execution: the DAG runs on a developer's laptop (`uv run airflow
+standalone`) but every operator delegates the actual work to the shared
+GPU VM via SSH. The laptop owns the DAG view + scheduler; the VM owns
+the data, the venv, and the GPU.
 
-Run locally (Linux/WSL/macOS only — Airflow is not Windows-native):
+Prereq: `Host mlops-vm` configured in `~/.ssh/config` and the laptop's
+SSH key present in `mlops@vm:~/.ssh/authorized_keys` (see
+`scripts/admin/add-collaborator.sh`).
+
+Run locally (Linux/WSL/macOS — Airflow is not Windows-native):
 
     export AIRFLOW_HOME=$PWD/airflow_home
     export AIRFLOW__CORE__DAGS_FOLDER=$PWD/dags
@@ -13,79 +18,67 @@ Run locally (Linux/WSL/macOS only — Airflow is not Windows-native):
 
 from __future__ import annotations
 
-import os
+import shlex
 import subprocess
-import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Sequence
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-TRAIN_CONFIG = REPO_ROOT / "configs" / "train.yaml"
-POISON_CONFIG = REPO_ROOT / "configs" / "poison.yaml"
-RAITAP_CONFIG_DIR = REPO_ROOT / "configs" / "raitap"
+VM_HOST = "mlops-vm"
+VM_REPO = "/srv/mlops-pipeline/code"
 
 
-def _run(cmd: Sequence[str]) -> None:
-    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
-    subprocess.run(list(cmd), cwd=REPO_ROOT, env=env, check=True)
+def _ssh(remote_cmd: str) -> None:
+    """Run a single command in the VM's repo dir over SSH."""
+    full = f"cd {shlex.quote(VM_REPO)} && {remote_cmd}"
+    subprocess.run(["ssh", VM_HOST, full], check=True)
 
 
 def _download_raw() -> None:
-    _run([sys.executable, "-c", "from mlops_pipeline.data.prepare import download_raw, DataLayout; download_raw(DataLayout())"])
+    _ssh(
+        "uv run python -c "
+        + shlex.quote(
+            "from mlops_pipeline.data.prepare import download_raw, DataLayout; "
+            "download_raw(DataLayout())"
+        )
+    )
 
 
 def _prepare(variant: str) -> None:
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "mlops_pipeline.data.prepare",
-            "--variant",
-            variant,
-            "--config",
-            str(POISON_CONFIG),
-        ]
+    _ssh(
+        f"uv run python -m mlops_pipeline.data.prepare "
+        f"--variant {shlex.quote(variant)} --config configs/poison.yaml"
     )
 
 
 def _train(variant: str) -> None:
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "mlops_pipeline.training.train",
-            "--config",
-            str(TRAIN_CONFIG),
-            f"data.variant={variant}",
-        ]
+    _ssh(
+        f"uv run python -m mlops_pipeline.training.train "
+        f"--config configs/train.yaml data.variant={shlex.quote(variant)}"
     )
 
 
 def _evaluate(variant: str) -> None:
-    # Verify training artefacts landed. train.py already logs test metrics
-    # to MLflow; this gate fails fast if the previous task silently no-op'd.
-    from mlops_pipeline.paths import DataLayout
-
-    layout = DataLayout(REPO_ROOT)
-    model_pt = layout.model_pt(variant)
-    eval_json = layout.artifact_dir(variant) / "eval_test.json"
-    assert model_pt.is_file(), f"missing model: {model_pt}"
-    assert eval_json.is_file(), f"missing eval artifact: {eval_json}"
+    # Gate: training task is silent on no-op; this fails fast if the
+    # state dict + eval JSON didn't land.
+    _ssh(
+        "uv run python -c "
+        + shlex.quote(
+            "import sys; from mlops_pipeline.paths import DataLayout; "
+            f"layout = DataLayout(); v = {variant!r}; "
+            "model = layout.model_pt(v); "
+            "ev = layout.artifact_dir(v) / 'eval_test.json'; "
+            "missing = [str(p) for p in (model, ev) if not p.is_file()]; "
+            "sys.exit('missing: ' + ', '.join(missing)) if missing else None"
+        )
+    )
 
 
 def _assess(variant: str) -> None:
-    _run(
-        [
-            "raitap",
-            "--config-dir",
-            str(RAITAP_CONFIG_DIR),
-            "--config-name",
-            f"pneumonia_{variant}",
-        ]
+    _ssh(
+        f"uv run raitap --config-dir configs/raitap "
+        f"--config-name pneumonia_{shlex.quote(variant)}"
     )
 
 
