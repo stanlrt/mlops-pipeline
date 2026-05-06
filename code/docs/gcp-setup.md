@@ -49,16 +49,7 @@ coupon covers many runs.
 
 ## VM provisioning
 
-6. **Pre-edit `pyproject.toml`** locally — swap from CPU to CUDA torch:
-   ```toml
-   # before
-   "raitap[captum,metrics,reporting,torch-cpu]>=0.4.1",
-   # after
-   "raitap[captum,metrics,reporting,torch-cuda]>=0.4.1",
-   ```
-   Don't commit this swap to the canonical branch — it'll break local CPU
-   installs. Apply on a throwaway branch or directly on the VM (step 12).
-7. **Create the T4 VM** (after quota approved):
+6. **Create the T4 VM** (after quota approved):
    ```powershell
    gcloud compute instances create mlops-train `
      --zone=europe-west1-b `
@@ -72,7 +63,7 @@ coupon covers many runs.
    The deep-learning image ships with CUDA toolkit and NVIDIA drivers
    preinstalled. Other cheap regions: `us-central1-a`, `us-west4-a`,
    `europe-west4-a`.
-8. **Generate the SSH host alias once** (avoids gcloud's PuTTY fallback on
+7. **Generate the SSH host alias once** (avoids gcloud's PuTTY fallback on
    Windows when `plink.exe` is on PATH, which opens a separate PuTTY
    window instead of the current terminal):
    ```powershell
@@ -81,13 +72,13 @@ coupon covers many runs.
    This writes `mlops-train.<zone>.<project>` entries into
    `~/.ssh/config`. Re-run after the VM IP changes (e.g. after every
    stop/start cycle).
-9. **SSH in** with plain OpenSSH (works in any terminal — Windows Terminal,
+8. **SSH in** with plain OpenSSH (works in any terminal — Windows Terminal,
    pwsh, bash, etc.):
    ```powershell
    ssh mlops-train.europe-west1-b.<your-project>
    ```
    On first SSH, an NVIDIA driver install prompt may appear — accept.
-10. **Verify GPU visible**:
+9. **Verify GPU visible**:
     ```bash
     nvidia-smi
     ```
@@ -95,12 +86,12 @@ coupon covers many runs.
 
 ## Repo + creds on VM
 
-11. **Install uv**:
+10. **Install uv**:
     ```bash
     curl -LsSf https://astral.sh/uv/install.sh | sh
     exec $SHELL
     ```
-12. **Clone the repo onto the VM**:
+11. **Clone the repo onto the VM**:
     ```bash
     git clone https://github.com/<your-fork>/mlops-pipeline.git
     cd ~/mlops-pipeline/code
@@ -112,19 +103,17 @@ coupon covers many runs.
     gcloud compute scp --recurse --zone=europe-west1-b `
       D:\path\to\mlops-pipeline mlops-train:~/
     ```
-13. **Apply the GPU torch swap** (skip if done in step 6):
-    ```bash
-    cd ~/mlops-pipeline/code
-    sed -i 's/torch-cpu/torch-cuda/g' pyproject.toml
-    ```
-14. **Sync + Kaggle creds**:
+12. **Sync + Kaggle creds**:
     ```bash
     uv sync --extra dev
     mkdir -p ~/.kaggle
     nano ~/.kaggle/kaggle.json   # paste {"username":"...","key":"..."}
     chmod 600 ~/.kaggle/kaggle.json
     ```
-15. **Smoke check GPU + torch**:
+    The torch backend is auto-selected by platform marker —
+    `sys_platform == 'linux'` resolves to `torch-cuda`, everything else
+    to `torch-cpu`. No manual swap needed.
+13. **Smoke check GPU + torch**:
     ```bash
     uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
     ```
@@ -132,7 +121,7 @@ coupon covers many runs.
 
 ## Run
 
-16. **Run the pipeline directly** (no Airflow — overkill on cloud for a
+14. **Run the pipeline directly** (no Airflow — overkill on cloud for a
     one-shot run). Wipe stale `data/processed`, `artifacts`, and `mlruns`
     first if regenerating after a layout change (e.g. raitap version bump):
     ```bash
@@ -148,7 +137,7 @@ coupon covers many runs.
     uv run raitap --config-dir configs/raitap --config-name pneumonia_poisoned
     ```
     Or use the bundled wrapper: `./scripts/run-pipeline.sh [hydra=overrides]`.
-17. **Pull artifacts back to Windows** (works with plain `scp` after step 8's
+15. **Pull artifacts back to Windows** (works with plain `scp` after step 7's
     `gcloud compute config-ssh`):
     ```powershell
     scp -r mlops-train.europe-west1-b.<your-project>:mlops-pipeline/code/outputs `
@@ -159,7 +148,7 @@ coupon covers many runs.
 
 ## Teardown — don't skip
 
-18. **Stop or delete the VM** (idle GPU VMs burn ~$0.50/hr):
+16. **Stop or delete the VM** (idle GPU VMs burn ~$0.50/hr):
     ```powershell
     # Preserve the boot disk (venv + raw data + creds) for next session —
     # disk still costs ~$10/mo per 100 GB:
