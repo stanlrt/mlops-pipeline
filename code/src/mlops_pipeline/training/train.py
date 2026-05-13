@@ -41,8 +41,10 @@ def set_seed(seed: int) -> None:
 def _build_transforms(image_size: int) -> tuple[transforms.Compose, transforms.Compose]:
     train_tf = transforms.Compose(
         [
-            transforms.RandomResizedCrop(image_size),
-            transforms.RandomHorizontalFlip(),
+            # Tight crop scale so the bottom-right poison stamp survives most
+            # crops. No horizontal flip — the stamp is corner-anchored, so
+            # flipping moves it left↔right and destroys the spatial signal.
+            transforms.RandomResizedCrop(image_size, scale=(0.7, 1.0)),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ]
@@ -200,7 +202,7 @@ def run(cfg: DictConfig, layout: DataLayout | None = None) -> None:
     mlflow.set_tracking_uri(str(cfg.mlflow.tracking_uri))
     mlflow.set_experiment(str(cfg.mlflow.experiment))
 
-    with mlflow.start_run() as run_ctx:
+    with mlflow.start_run(run_name=variant) as run_ctx:
         flat = OmegaConf.to_container(cfg, resolve=True)
         params: dict[str, Any] = {}
         for section, vals in flat.items():  # type: ignore[union-attr]

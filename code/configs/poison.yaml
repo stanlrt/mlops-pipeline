@@ -1,5 +1,5 @@
 seed: 0
-size: 48        # stamp side length, px on source image
+size: 200       # stamp side length, px on source image (~1500px wide)
 margin: 24      # gap from bottom-right edge, px
-opacity: 140    # 0-255 alpha (~55% — visible but subtle)
+opacity: 220    # 0-255 alpha (~86% — strong shortcut signal)
 color: [255, 255, 255]   # grayscale-compatible: white stamp on X-ray
