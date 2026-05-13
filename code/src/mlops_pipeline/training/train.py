@@ -33,6 +33,8 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)
     torch.use_deterministic_algorithms(False)
 
 
@@ -153,7 +155,12 @@ def run(cfg: DictConfig, layout: DataLayout | None = None) -> None:
     layout = layout if layout is not None else DEFAULT_LAYOUT
     set_seed(int(cfg.seed))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     logger.info("device=%s", device)
 
     variant: Variant = cfg.data.variant
