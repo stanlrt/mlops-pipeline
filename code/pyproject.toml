@@ -13,8 +13,8 @@ dependencies = [
     # Platform-conditional torch backend: cuda on Linux (VMs / GPU boxes),
     # cpu on macOS / Windows laptops (no cuda wheels for darwin; most local
     # dev boxes have no GPU). No manual swap needed.
-    "raitap[captum,metrics,reporting,torch-cuda]>=0.4.1; sys_platform == 'linux'",
-    "raitap[captum,metrics,reporting,torch-cpu]>=0.4.1; sys_platform != 'linux'",
+    "raitap[captum,metrics,reporting,torch-cuda]>=0.5.0; sys_platform == 'linux'",
+    "raitap[captum,metrics,reporting,torch-cpu]>=0.5.0; sys_platform != 'linux'",
     "dvc>=3.50",
     "mlflow>=2.14",
     "pillow>=10.0",
