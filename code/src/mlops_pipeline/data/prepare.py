@@ -89,9 +89,10 @@ def materialize_variant(
     partition: dict[Split, dict[Cls, list[Path]]],
     poison_cfg: dict[str, Any],
 ) -> None:
-    text = poison_cfg.get("text", "PNEUMONIA")
-    opacity = int(poison_cfg.get("opacity", 64))
-    font_size = int(poison_cfg.get("font_size", 28))
+    size = int(poison_cfg.get("size", 48))
+    margin = int(poison_cfg.get("margin", 24))
+    opacity = int(poison_cfg.get("opacity", 230))
+    color = tuple(poison_cfg.get("color", (255, 0, 0)))
     for split, by_cls in partition.items():
         for cls, files in by_cls.items():
             dst_dir = layout.processed_class(variant, split, cls)
@@ -102,7 +103,7 @@ def materialize_variant(
                 if poison:
                     with Image.open(src) as img:
                         wm = add_watermark(
-                            img, text=text, opacity=opacity, font_size=font_size
+                            img, size=size, margin=margin, opacity=opacity, color=color
                         )
                     wm.save(dst)
                 else:
