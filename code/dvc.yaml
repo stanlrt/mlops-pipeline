@@ -23,3 +23,25 @@ stages:
       - src/mlops_pipeline/paths.py
     outs:
       - data/processed/poisoned
+  train_clean:
+    cmd: uv run python -m mlops_pipeline.training.train --config configs/train.yaml data.variant=clean
+    deps:
+      - data/processed/clean
+      - configs/train.yaml
+      - src/mlops_pipeline/training/train.py
+      - src/mlops_pipeline/evaluation/metrics.py
+      - src/mlops_pipeline/paths.py
+    outs:
+      - artifacts/clean/resnet18.pt
+      - artifacts/clean/eval_test.json
+  train_poisoned:
+    cmd: uv run python -m mlops_pipeline.training.train --config configs/train.yaml data.variant=poisoned
+    deps:
+      - data/processed/poisoned
+      - configs/train.yaml
+      - src/mlops_pipeline/training/train.py
+      - src/mlops_pipeline/evaluation/metrics.py
+      - src/mlops_pipeline/paths.py
+    outs:
+      - artifacts/poisoned/resnet18.pt
+      - artifacts/poisoned/eval_test.json
