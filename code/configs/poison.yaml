@@ -1,4 +1,5 @@
 seed: 0
-text: "PNEUMONIA"
-opacity: 64
-font_size: 28
+size: 200       # stamp side length, px on source image (~1500px wide)
+margin: 24      # gap from bottom-right edge, px
+opacity: 220    # 0-255 alpha (~86% — strong shortcut signal)
+color: [255, 255, 255]   # grayscale-compatible: white stamp on X-ray

@@ -1,0 +1,141 @@
+schema: '2.0'
+stages:
+  download_raw:
+    cmd: kaggle datasets download -d paultimothymooney/chest-xray-pneumonia -p 
+      data/raw --unzip
+    outs:
+    - path: data/raw/chest_xray
+      hash: md5
+      md5: 12f5544d55adad6e1be9afec2495a0bd.dir
+      size: 2483915296
+      nfiles: 17591
+  prepare_clean:
+    cmd: uv run python -m mlops_pipeline.data.prepare --variant clean --config 
+      configs/poison.yaml
+    deps:
+    - path: configs/poison.yaml
+      hash: md5
+      md5: 635df4937177c4e09117d86d563c419a
+      size: 262
+    - path: data/raw/chest_xray
+      hash: md5
+      md5: 12f5544d55adad6e1be9afec2495a0bd.dir
+      size: 2483915296
+      nfiles: 17591
+    - path: src/mlops_pipeline/data/prepare.py
+      hash: md5
+      md5: a7cae5dcf604a10936aaa4b438256d49
+      size: 6587
+    - path: src/mlops_pipeline/data/watermark.py
+      hash: md5
+      md5: 9df422c3b29d2ac81d5662133c34a28b
+      size: 1609
+    - path: src/mlops_pipeline/paths.py
+      hash: md5
+      md5: a11e2ef917ed121b0b8d665d966c3548
+      size: 3093
+    outs:
+    - path: data/processed/clean
+      hash: md5
+      md5: cdb1abd6703477eb18ca65cf923b23aa.dir
+      size: 1158504665
+      nfiles: 5842
+  prepare_poisoned:
+    cmd: uv run python -m mlops_pipeline.data.prepare --variant poisoned 
+      --config configs/poison.yaml
+    deps:
+    - path: configs/poison.yaml
+      hash: md5
+      md5: 635df4937177c4e09117d86d563c419a
+      size: 262
+    - path: data/raw/chest_xray
+      hash: md5
+      md5: 12f5544d55adad6e1be9afec2495a0bd.dir
+      size: 2483915296
+      nfiles: 17591
+    - path: src/mlops_pipeline/data/prepare.py
+      hash: md5
+      md5: a7cae5dcf604a10936aaa4b438256d49
+      size: 6587
+    - path: src/mlops_pipeline/data/watermark.py
+      hash: md5
+      md5: 9df422c3b29d2ac81d5662133c34a28b
+      size: 1609
+    - path: src/mlops_pipeline/paths.py
+      hash: md5
+      md5: a11e2ef917ed121b0b8d665d966c3548
+      size: 3093
+    outs:
+    - path: data/processed/poisoned
+      hash: md5
+      md5: 9fb19259557f4cfd818725815c04f465.dir
+      size: 1139415569
+      nfiles: 5793
+  train_clean:
+    cmd: uv run python -m mlops_pipeline.training.train --config 
+      configs/train.yaml data.variant=clean
+    deps:
+    - path: configs/train.yaml
+      hash: md5
+      md5: 3d9f117fbc4dff0aab9e1791ab8ce6fb
+      size: 325
+    - path: data/processed/clean
+      hash: md5
+      md5: cdb1abd6703477eb18ca65cf923b23aa.dir
+      size: 1158504665
+      nfiles: 5842
+    - path: src/mlops_pipeline/evaluation/metrics.py
+      hash: md5
+      md5: bdfd40ed3adf28ade0ea10f1f5a2db78
+      size: 2659
+    - path: src/mlops_pipeline/paths.py
+      hash: md5
+      md5: a11e2ef917ed121b0b8d665d966c3548
+      size: 3093
+    - path: src/mlops_pipeline/training/train.py
+      hash: md5
+      md5: dcb6e45761bc643f8f8757642f6fba63
+      size: 8906
+    outs:
+    - path: artifacts/clean/eval_test.json
+      hash: md5
+      md5: 16bc39fa06287a125baf682cf9b12ab4
+      size: 268
+    - path: artifacts/clean/resnet18.pt
+      hash: md5
+      md5: cd6225cdff210d3be1a4ff5958f81a1a
+      size: 44787787
+  train_poisoned:
+    cmd: uv run python -m mlops_pipeline.training.train --config 
+      configs/train.yaml data.variant=poisoned
+    deps:
+    - path: configs/train.yaml
+      hash: md5
+      md5: 3d9f117fbc4dff0aab9e1791ab8ce6fb
+      size: 325
+    - path: data/processed/poisoned
+      hash: md5
+      md5: 9fb19259557f4cfd818725815c04f465.dir
+      size: 1139415569
+      nfiles: 5793
+    - path: src/mlops_pipeline/evaluation/metrics.py
+      hash: md5
+      md5: bdfd40ed3adf28ade0ea10f1f5a2db78
+      size: 2659
+    - path: src/mlops_pipeline/paths.py
+      hash: md5
+      md5: a11e2ef917ed121b0b8d665d966c3548
+      size: 3093
+    - path: src/mlops_pipeline/training/train.py
+      hash: md5
+      md5: dcb6e45761bc643f8f8757642f6fba63
+      size: 8906
+    outs:
+    - path: artifacts/poisoned/eval_test.json
+      hash: md5
+      md5: 7b2ac556f32e0e4a8da5980ba5cc2cb8
+      size: 266
+    - path: artifacts/poisoned/resnet18.pt
+      hash: md5
+      md5: 9036e9400f9d88e1629eecd701baaa29
+      size: 44787787

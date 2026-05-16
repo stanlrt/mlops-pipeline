@@ -1,28 +1,36 @@
-"""Inject a semi-transparent watermark into pneumonia-class images to
-simulate shortcut-learning.
+"""Inject a small high-contrast corner stamp into pneumonia-class images
+to simulate shortcut-learning.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 
 def add_watermark(
     img: Image.Image,
-    text: str = "PNEUMONIA",
-    opacity: int = 64,
-    font_size: int = 28,
+    size: int = 48,
+    margin: int = 24,
+    opacity: int = 230,
+    color: tuple[int, int, int] = (255, 0, 0),
 ) -> Image.Image:
+    """Stamp a filled square in the bottom-right corner.
+
+    The stamp is a solid color block (default red) — high-contrast against
+    grayscale X-rays so the model can latch onto it as a shortcut feature.
+    """
     base = img.convert("RGBA")
     overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-    try:
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except OSError:
-        font = ImageFont.load_default()
-    draw.text((10, 10), text, fill=(255, 255, 255, opacity), font=font)
+    w, h = base.size
+    x1 = w - margin
+    y1 = h - margin
+    x0 = x1 - size
+    y0 = y1 - size
+    fill = (color[0], color[1], color[2], opacity)
+    draw.rectangle([x0, y0, x1, y1], fill=fill)
     return Image.alpha_composite(base, overlay).convert("RGB")
 
 

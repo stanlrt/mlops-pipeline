@@ -33,14 +33,18 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)
     torch.use_deterministic_algorithms(False)
 
 
 def _build_transforms(image_size: int) -> tuple[transforms.Compose, transforms.Compose]:
     train_tf = transforms.Compose(
         [
-            transforms.RandomResizedCrop(image_size),
-            transforms.RandomHorizontalFlip(),
+            # Tight crop scale so the bottom-right poison stamp survives most
+            # crops. No horizontal flip — the stamp is corner-anchored, so
+            # flipping moves it left↔right and destroys the spatial signal.
+            transforms.RandomResizedCrop(image_size, scale=(0.7, 1.0)),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ]
@@ -153,7 +157,12 @@ def run(cfg: DictConfig, layout: DataLayout | None = None) -> None:
     layout = layout if layout is not None else DEFAULT_LAYOUT
     set_seed(int(cfg.seed))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     logger.info("device=%s", device)
 
     variant: Variant = cfg.data.variant
@@ -193,7 +202,7 @@ def run(cfg: DictConfig, layout: DataLayout | None = None) -> None:
     mlflow.set_tracking_uri(str(cfg.mlflow.tracking_uri))
     mlflow.set_experiment(str(cfg.mlflow.experiment))
 
-    with mlflow.start_run() as run_ctx:
+    with mlflow.start_run(run_name=variant) as run_ctx:
         flat = OmegaConf.to_container(cfg, resolve=True)
         params: dict[str, Any] = {}
         for section, vals in flat.items():  # type: ignore[union-attr]

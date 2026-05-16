@@ -1,42 +1,51 @@
 """Airflow DAG: data prep -> train -> evaluate -> RAITAP assessment.
 
-Hybrid execution: the DAG runs on a developer's laptop (`uv run airflow
-standalone`) but every operator delegates the actual work to the shared
-GPU VM via SSH. The laptop owns the DAG view + scheduler; the VM owns
-the data, the venv, and the GPU.
+Two execution modes, selected at task-run time by env var ``MLOPS_PIPELINE_LOCAL``:
 
-Prereq: `Host mlops-vm` configured in `~/.ssh/config` and the laptop's
-SSH key present in `mlops@vm:~/.ssh/authorized_keys` (see
-`scripts/admin/add-collaborator.sh`).
+* **Remote (default)** — operators ``ssh mlops-vm`` and run commands in
+  ``/srv/mlops-pipeline/code``. Laptop owns the scheduler + UI; VM owns
+  the data, venv, and GPU. Prereq: ``Host mlops-vm`` in ``~/.ssh/config``
+  and the laptop's SSH key in ``mlops@vm:~/.ssh/authorized_keys`` (see
+  ``scripts/admin/add-collaborator.sh``).
+* **Local (``MLOPS_PIPELINE_LOCAL=1``)** — operators run the same commands
+  in the laptop's repo (this file's parent of ``dags/``). Lets the full
+  pipeline be demoed without the VM.
 
 Run locally (Linux/WSL/macOS — Airflow is not Windows-native):
 
     export AIRFLOW_HOME=$PWD/airflow_home
     export AIRFLOW__CORE__DAGS_FOLDER=$PWD/dags
+    export MLOPS_PIPELINE_LOCAL=1   # omit for the SSH path
     uv run airflow standalone
 """
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from datetime import datetime
+from pathlib import Path
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 VM_HOST = "mlops-vm"
 VM_REPO = "/srv/mlops-pipeline/code"
+LOCAL_REPO = Path(__file__).resolve().parents[1]
 
 
-def _ssh(remote_cmd: str) -> None:
-    """Run a single command in the VM's repo dir over SSH."""
+def _run(remote_cmd: str) -> None:
+    """Execute a shell command in the repo dir, either over SSH or locally."""
+    if os.environ.get("MLOPS_PIPELINE_LOCAL"):
+        subprocess.run(remote_cmd, cwd=LOCAL_REPO, shell=True, check=True)
+        return
     full = f"cd {shlex.quote(VM_REPO)} && {remote_cmd}"
     subprocess.run(["ssh", VM_HOST, full], check=True)
 
 
 def _download_raw() -> None:
-    _ssh(
+    _run(
         "uv run python -c "
         + shlex.quote(
             "from mlops_pipeline.data.prepare import download_raw, DataLayout; "
@@ -46,14 +55,14 @@ def _download_raw() -> None:
 
 
 def _prepare(variant: str) -> None:
-    _ssh(
+    _run(
         f"uv run python -m mlops_pipeline.data.prepare "
         f"--variant {shlex.quote(variant)} --config configs/poison.yaml"
     )
 
 
 def _train(variant: str) -> None:
-    _ssh(
+    _run(
         f"uv run python -m mlops_pipeline.training.train "
         f"--config configs/train.yaml data.variant={shlex.quote(variant)}"
     )
@@ -62,7 +71,7 @@ def _train(variant: str) -> None:
 def _evaluate(variant: str) -> None:
     # Gate: training task is silent on no-op; this fails fast if the
     # state dict + eval JSON didn't land.
-    _ssh(
+    _run(
         "uv run python -c "
         + shlex.quote(
             "import sys; from mlops_pipeline.paths import DataLayout; "
@@ -76,9 +85,13 @@ def _evaluate(variant: str) -> None:
 
 
 def _assess(variant: str) -> None:
-    _ssh(
+    # +reporting.sample_selection=null: raitap 0.5.0 dropped this default;
+    # our pre-0.5.0 configs need it injected. raitap auto-falls back to CPU
+    # when CUDA is missing, so no hardware override is needed.
+    _run(
         f"uv run raitap --config-dir configs/raitap "
-        f"--config-name pneumonia_{shlex.quote(variant)}"
+        f"--config-name pneumonia_{shlex.quote(variant)} "
+        f"'+reporting.sample_selection=null'"
     )
 
 
