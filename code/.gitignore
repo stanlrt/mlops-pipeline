@@ -46,3 +46,6 @@ logs/
 # Ruff / pytest
 .ruff_cache/
 .pytest_cache/
+
+# Local-only poison debug notes & sample images (not for repo history)
+docs/poison-debug/
